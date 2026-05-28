@@ -1,4 +1,7 @@
 {
   "name": "diff-narrative",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
 }
