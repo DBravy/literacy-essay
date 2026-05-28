@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain vs Transformer — Are we really that different?</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #222;
+  }
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 24px 0;
+  }
+  .nav {
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 0.05em;
+  }
+  .nav a {
+    color: #888;
+    text-decoration: none;
+    border-bottom: 1px solid #ddd;
+  }
+  .nav a:hover { color: #222; border-color: #888; }
+  .title {
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    color: #222;
+    font-weight: 500;
+  }
+  .subtitle {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: #888;
+  }
+  .label {
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 0.05em;
+  }
+  .panel-label {
+    font-size: 12px;
+    color: #444;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+  }
+  .panel-sub {
+    font-size: 10px;
+    color: #aaa;
+    letter-spacing: 0.04em;
+  }
+  .canvases {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .panel canvas { display: block; }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 1100px;
+  }
+  .toggle {
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: #888;
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 14px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    background: #fafafa;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .toggle:hover {
+    color: #222;
+    border-color: #bbb;
+  }
+  .toggle .key {
+    color: #bbb;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    margin-right: 6px;
+  }
+  .toggle .val {
+    color: #222;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats {
+    font-size: 10px;
+    color: #aaa;
+    letter-spacing: 0.03em;
+    text-align: center;
+    line-height: 1.6;
+    max-width: 900px;
+  }
+  .scrubber {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+  }
+  .progress-num {
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    color: #222;
+    cursor: ew-resize;
+    font-variant-numeric: tabular-nums;
+    min-width: 4.5em;
+    text-align: center;
+  }
+  .progress-num:hover { color: #555; }
+  .progress-num.dragging { color: #000; }
+  .scrubber-hint {
+    font-size: 10px;
+    color: #ccc;
+    letter-spacing: 0.03em;
+  }
+  .step-readout {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: #999;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    text-align: center;
+  }
+  .step-readout .here {
+    color: #222;
+    font-weight: 500;
+  }
+  .pause-btn {
+    font-size: 14px;
+    color: #aaa;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    background: #fafafa;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .pause-btn:hover { color: #222; border-color: #bbb; }
+  .view-label {
+    font-size: 11px;
+    color: #888;
+    letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="title">ARE WE REALLY THAT DIFFERENT?</div>
+  <div class="subtitle">CORTICAL POPULATION vs TRANSFORMER RESIDUAL STREAM</div>
+
+  <div class="scrubber">
+    <div class="pause-btn" id="pauseBtn">&#9646;&#9646;</div>
+    <div class="progress-num" id="progressNum">0%</div>
+    <div class="scrubber-hint">drag to scrub</div>
+  </div>
+
+  <div class="step-readout" id="stepReadout"></div>
+
+  <div class="view-label" id="viewLabel">ACTIVATION vs PROGRESS</div>
+
+  <div class="canvases">
+    <div class="panel">
+      <div class="panel-label" id="leftLabel">PFC POPULATION (PC1)</div>
+      <div class="panel-sub" id="leftSub">decision-making, motion context</div>
+      <canvas id="canvasL" width="520" height="390"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-label" id="rightLabel">TRANSFORMER RESIDUAL UNIT</div>
+      <div class="panel-sub" id="rightSub">unit 2300, arithmetic problems</div>
+      <canvas id="canvasR" width="520" height="390"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="toggle" id="viewToggle">
+      <span class="key">VIEW</span><span class="val">switch to phase portrait</span>
+    </div>
+    <div class="toggle" id="pfcCondToggle">
+      <span class="key">BRAIN COND</span><span class="val">coh = +0.50</span>
+    </div>
+    <div class="toggle" id="pfcKToggle">
+      <span class="key">BRAIN PCs</span><span class="val">PC1</span>
+    </div>
+    <div class="toggle" id="xfmrUnitToggle">
+      <span class="key">LLM UNIT</span><span class="val">2300</span>
+    </div>
+    <div class="toggle" id="xfmrCondToggle">
+      <span class="key">LLM COND</span><span class="val">arithmetic</span>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+</div>
+
+<script>
+(async () => {
+  // -------------------------------------------------------------------
+  // Data loading
+  // -------------------------------------------------------------------
+  const [pfc, xfmr] = await Promise.all([
+    fetch("trajectories.json").then(r => r.json()),
+    fetch("pair_2300_2839.json").then(r => r.json()),
+  ]);
+
+  // -------------------------------------------------------------------
+  // PFC: take the top-k PCs from the JSON, sum them, and recompute dx/ddx
+  // as discrete point-to-point diffs so they live on the same scale as the
+  // transformer side.
+  //
+  // Summing PCs is a Fourier-style reconstruction: PC1 is the dominant slow
+  // ramp, PC2/PC3/... carry progressively higher-frequency oscillatory
+  // content. Summing more PCs gives a richer signal that looks more like a
+  // single residual coordinate in the transformer.
+  // -------------------------------------------------------------------
+  function pcsAvailable(cond) {
+    let k = 0;
+    while (cond[`pc${k + 1}_trim`]) k += 1;
+    return k;
+  }
+
+  function wrapPfc(cond, kSum) {
+    const N = cond.pc1_trim.length;
+    const layerData = new Float64Array(N);
+    for (let p = 1; p <= kSum; p++) {
+      const arr = cond[`pc${p}_trim`];
+      if (!arr) break;
+      for (let i = 0; i < N; i++) layerData[i] += arr[i];
+    }
+    const N_PHASE = layerData.length - 1;
+    const dx = new Float64Array(N_PHASE);
+    for (let i = 0; i < N_PHASE; i++) dx[i] = layerData[i + 1] - layerData[i];
+    const N_ACC = N_PHASE - 1;
+    const ddx = new Float64Array(N_ACC);
+    for (let i = 0; i < N_ACC; i++) ddx[i] = dx[i + 1] - dx[i];
+    const ySignalName = kSum === 1 ? "PC1" : `PC1..${kSum}`;
+    return {
+      kind: "brain",
+      label: cond.label,
+      layerData, dx, ddx,
+      N: layerData.length,
+      N_PHASE,
+      N_ACC,
+      xAxis: { name: "time (ms)", min: 160, max: 790 },
+      ySignalName,
+      stepUnit: "ms",
+    };
+  }
+
+  // How many PCs are available in the JSON, and how many we're currently summing
+  const K_AVAILABLE = pcsAvailable(pfc.conditions[0]);
+  let kSum = 1;  // start with PC1 only (the slow ramp), can be raised
+
+  // pfcProfiles is recomputed whenever kSum changes
+  let pfcProfiles = pfc.conditions.map(c => wrapPfc(c, kSum));
+  const PFC_N = pfcProfiles[0].N;
+  const pfcTimeMs = pfc.metadata.time_ms_trim;
+
+  function rebuildPfcProfiles() {
+    pfcProfiles = pfc.conditions.map(c => wrapPfc(c, kSum));
+  }
+
+  // -------------------------------------------------------------------
+  // Transformer: Catmull-Rom upsample to match the original compare.html
+  // -------------------------------------------------------------------
+  const UP = 8;
+  function catmullRom(p0, p1, p2, p3, t) {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * (
+      (2 * p1) +
+      (-p0 + p2) * t +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+    );
+  }
+  function upsampleArr(raw) {
+    const rawN = raw.length;
+    const N = (rawN - 1) * UP + 1;
+    const out = new Float64Array(N);
+    for (let seg = 0; seg < rawN - 1; seg++) {
+      const p0 = raw[Math.max(seg - 1, 0)];
+      const p1 = raw[seg];
+      const p2 = raw[seg + 1];
+      const p3 = raw[Math.min(seg + 2, rawN - 1)];
+      for (let j = 0; j < UP; j++) {
+        out[seg * UP + j] = catmullRom(p0, p1, p2, p3, j / UP);
+      }
+    }
+    out[N - 1] = raw[rawN - 1];
+    return out;
+  }
+  function processXfmr(raw) {
+    const layerData = upsampleArr(new Float64Array(raw));
+    const N_PHASE = layerData.length - 1;
+    const dx = new Float64Array(N_PHASE);
+    for (let i = 0; i < N_PHASE; i++) dx[i] = layerData[i + 1] - layerData[i];
+    const N_ACC = N_PHASE - 1;
+    const ddx = new Float64Array(N_ACC);
+    for (let i = 0; i < N_ACC; i++) ddx[i] = dx[i + 1] - dx[i];
+    return {
+      kind: "transformer",
+      layerData, dx, ddx,
+      N: layerData.length,
+      N_PHASE, N_ACC,
+      xAxis: { name: "layer", min: 0, max: xfmr.n_sublayers - 1 },
+      ySignalName: "activation",
+      stepUnit: "layer",
+    };
+  }
+
+  const xfmrProfiles = {
+    "2300": {
+      arithmetic: processXfmr(xfmr.profiles.arithmetic[xfmr.unit_a]),
+      control:    processXfmr(xfmr.profiles.control[xfmr.unit_a]),
+    },
+    "2839": {
+      arithmetic: processXfmr(xfmr.profiles.arithmetic[xfmr.unit_b]),
+      control:    processXfmr(xfmr.profiles.control[xfmr.unit_b]),
+    },
+  };
+  const XFMR_N = xfmrProfiles["2300"].arithmetic.N;
+
+  // -------------------------------------------------------------------
+  // Canvas setup
+  // -------------------------------------------------------------------
+  const canvasL = document.getElementById("canvasL");
+  const canvasR = document.getElementById("canvasR");
+  const ctxL = canvasL.getContext("2d");
+  const ctxR = canvasR.getContext("2d");
+  const margin = { top: 16, right: 16, bottom: 40, left: 56 };
+  const W = canvasL.width - margin.left - margin.right;
+  const H = canvasL.height - margin.top - margin.bottom;
+  function map(v, lo, hi, outLo, outHi) {
+    return outLo + (v - lo) / (hi - lo) * (outHi - outLo);
+  }
+
+  // -------------------------------------------------------------------
+  // State
+  // -------------------------------------------------------------------
+  let mode = "wave";           // "wave" | "phase" | "accel"
+  let pfcIdx = 5;              // default: coh = +0.50
+  let xfmrUnitKey = "2300";
+  let xfmrCondKey = "arithmetic";
+  let progress = 0.0;          // [0, 1)
+  let paused = false;
+  const DURATION_SEC = 8.0;    // wall time for one full traversal
+  const RANGE_PAD = 0.15;
+
+  function getProfiles() {
+    return [pfcProfiles[pfcIdx], xfmrProfiles[xfmrUnitKey][xfmrCondKey]];
+  }
+
+  // Map normalized progress to per-profile fractional index
+  function profileFrame(prof) {
+    const f = progress * (prof.N - 1);
+    return { idx: Math.floor(f), frac: f - Math.floor(f) };
+  }
+
+  function padRange(lo, hi) {
+    const span = hi - lo || 1;
+    return [lo - span * RANGE_PAD, hi + span * RANGE_PAD];
+  }
+  function fmtNum(v) {
+    const a = Math.abs(v);
+    if (a === 0) return "0";
+    if (a >= 100) return v.toFixed(0);
+    if (a >= 1) return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function drawAxes(ctx, xLabel, yLabel, xRange, yRange) {
+    ctx.fillStyle = "#888";
+    ctx.font = "11px Helvetica Neue, Helvetica, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(xLabel, W / 2, H + 8);
+    ctx.save();
+    ctx.translate(-38, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+    ctx.fillStyle = "#aaa";
+    ctx.font = "10px Helvetica Neue, Helvetica, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(fmtNum(xRange[0]), 0, H + 6);
+    ctx.textAlign = "right";
+    ctx.fillText(fmtNum(xRange[1]), W, H + 6);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText(fmtNum(yRange[1]), -6, 0);
+    ctx.textBaseline = "bottom";
+    ctx.fillText(fmtNum(yRange[0]), -6, H);
+  }
+
+  // Compute per-panel ranges. Each panel uses its own native scale.
+  function rangesFor(prof) {
+    const { idx, frac } = profileFrame(prof);
+    if (mode === "wave") {
+      const n = Math.min(idx + 1, prof.N_PHASE);
+      let yExt = 0;
+      for (let i = 0; i <= n; i++) {
+        const a = Math.abs(prof.layerData[i]);
+        if (a > yExt) yExt = a;
+      }
+      if (idx < prof.N_PHASE) {
+        const a = Math.abs(prof.layerData[idx] + frac * prof.dx[idx]);
+        if (a > yExt) yExt = a;
+      }
+      yExt = Math.max(yExt, 1e-6);
+      return {
+        xRange: [prof.xAxis.min, prof.xAxis.max],
+        yRange: padRange(-yExt, yExt),
+      };
+    } else if (mode === "phase") {
+      const n = Math.min(idx + 1, prof.N_PHASE);
+      let xExt = 0, yExt = 0;
+      for (let i = 0; i < n; i++) {
+        const ax = Math.abs(prof.layerData[i]);
+        const ay = Math.abs(prof.dx[i]);
+        if (ax > xExt) xExt = ax;
+        if (ay > yExt) yExt = ay;
+      }
+      xExt = Math.max(xExt, 1e-6);
+      yExt = Math.max(yExt, 1e-6);
+      return {
+        xRange: padRange(-xExt, xExt),
+        yRange: padRange(-yExt, yExt),
+      };
+    } else {
+      const nA = Math.min(idx + 1, prof.N_ACC);
+      let xExt = 0, yExt = 0;
+      for (let i = 0; i < nA; i++) {
+        const ax = Math.abs(prof.dx[i]);
+        const ay = Math.abs(prof.ddx[i]);
+        if (ax > xExt) xExt = ax;
+        if (ay > yExt) yExt = ay;
+      }
+      xExt = Math.max(xExt, 1e-6);
+      yExt = Math.max(yExt, 1e-6);
+      return {
+        xRange: padRange(-xExt, xExt),
+        yRange: padRange(-yExt, yExt),
+      };
+    }
+  }
+
+  function drawProfile(ctx, prof) {
+    const { idx, frac } = profileFrame(prof);
+    const n = Math.min(idx + 1, prof.N_PHASE);
+    const ranges = rangesFor(prof);
+    const [xLo, xHi] = ranges.xRange;
+    const [yLo, yHi] = ranges.yRange;
+
+    ctx.save();
+    ctx.translate(margin.left, margin.top);
+
+    if (mode === "wave") {
+      const hy = map(0, yLo, yHi, H, 0);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(0, H);
+      ctx.moveTo(0, hy); ctx.lineTo(W, hy);
+      ctx.stroke();
+
+      drawAxes(ctx, prof.xAxis.name, prof.ySignalName, ranges.xRange, ranges.yRange);
+
+      // The x-axis of the wave plot is the native step index (time-ms for brain,
+      // layer for transformer). We use [xLo, xHi] = [min, max] for that.
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      const stepLo = prof.xAxis.min, stepHi = prof.xAxis.max;
+      for (let i = 0; i <= n; i++) {
+        const stepVal = stepLo + (i / (prof.N - 1)) * (stepHi - stepLo);
+        const px = map(stepVal, xLo, xHi, 0, W);
+        const py = map(prof.layerData[i], yLo, yHi, H, 0);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      if (idx < prof.N_PHASE) {
+        const stepVal = stepLo + ((idx + frac) / (prof.N - 1)) * (stepHi - stepLo);
+        const px = map(stepVal, xLo, xHi, 0, W);
+        const py = map(prof.layerData[idx] + frac * prof.dx[idx], yLo, yHi, H, 0);
+        ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      const stepVal = stepLo + ((idx + frac) / (prof.N - 1)) * (stepHi - stepLo);
+      const dotX = map(stepVal, xLo, xHi, 0, W);
+      const safeIdx = idx < prof.N_PHASE ? idx : prof.N_PHASE - 1;
+      const dotY = map(prof.layerData[idx] + frac * prof.dx[safeIdx], yLo, yHi, H, 0);
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+    } else if (mode === "phase") {
+      const vx = map(0, xLo, xHi, 0, W);
+      const hy = map(0, yLo, yHi, H, 0);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(vx, 0); ctx.lineTo(vx, H);
+      ctx.moveTo(0, hy); ctx.lineTo(W, hy);
+      ctx.stroke();
+
+      drawAxes(ctx, prof.ySignalName, `\u0394 ${prof.ySignalName}`,
+               ranges.xRange, ranges.yRange);
+
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const px = map(prof.layerData[i], xLo, xHi, 0, W);
+        const py = map(prof.dx[i], yLo, yHi, H, 0);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      if (idx < prof.N_PHASE - 1 && n > 0) {
+        const fx = prof.layerData[idx] + frac * (prof.layerData[idx + 1] - prof.layerData[idx]);
+        const fy = prof.dx[idx] + frac * (prof.dx[idx + 1] - prof.dx[idx]);
+        ctx.lineTo(map(fx, xLo, xHi, 0, W), map(fy, yLo, yHi, H, 0));
+      }
+      ctx.stroke();
+
+      let dotPx, dotPy;
+      if (idx < prof.N_PHASE - 1 && n > 0) {
+        const fx = prof.layerData[idx] + frac * (prof.layerData[idx + 1] - prof.layerData[idx]);
+        const fy = prof.dx[idx] + frac * (prof.dx[idx + 1] - prof.dx[idx]);
+        dotPx = map(fx, xLo, xHi, 0, W);
+        dotPy = map(fy, yLo, yHi, H, 0);
+      } else if (n > 0) {
+        const li = Math.min(idx, prof.N_PHASE - 1);
+        dotPx = map(prof.layerData[li], xLo, xHi, 0, W);
+        dotPy = map(prof.dx[li], yLo, yHi, H, 0);
+      } else {
+        dotPx = W / 2; dotPy = H / 2;
+      }
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(dotPx, dotPy, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+    } else {
+      // accel
+      const N_A = prof.N_ACC;
+      const nA = Math.min(idx + 1, N_A);
+      const vx = map(0, xLo, xHi, 0, W);
+      const hy = map(0, yLo, yHi, H, 0);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(vx, 0); ctx.lineTo(vx, H);
+      ctx.moveTo(0, hy); ctx.lineTo(W, hy);
+      ctx.stroke();
+
+      drawAxes(ctx, `\u0394 ${prof.ySignalName}`, `\u0394\u00B2 ${prof.ySignalName}`,
+               ranges.xRange, ranges.yRange);
+
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = 0; i < nA; i++) {
+        const px = map(prof.dx[i], xLo, xHi, 0, W);
+        const py = map(prof.ddx[i], yLo, yHi, H, 0);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      if (idx < N_A - 1 && idx + 1 <= nA) {
+        const fx = prof.dx[idx] + frac * (prof.dx[idx + 1] - prof.dx[idx]);
+        const fy = prof.ddx[idx] + frac * (prof.ddx[idx + 1] - prof.ddx[idx]);
+        ctx.lineTo(map(fx, xLo, xHi, 0, W), map(fy, yLo, yHi, H, 0));
+      }
+      ctx.stroke();
+
+      let dotPx, dotPy;
+      if (idx < N_A - 1 && nA > 0) {
+        const fx = prof.dx[idx] + frac * (prof.dx[idx + 1] - prof.dx[idx]);
+        const fy = prof.ddx[idx] + frac * (prof.ddx[idx + 1] - prof.ddx[idx]);
+        dotPx = map(fx, xLo, xHi, 0, W);
+        dotPy = map(fy, yLo, yHi, H, 0);
+      } else if (nA > 0) {
+        const li = Math.min(idx, N_A - 1);
+        dotPx = map(prof.dx[li], xLo, xHi, 0, W);
+        dotPy = map(prof.ddx[li], yLo, yHi, H, 0);
+      } else {
+        dotPx = W / 2; dotPy = H / 2;
+      }
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(dotPx, dotPy, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // -------------------------------------------------------------------
+  // Step readout: show current time-ms (brain) and current layer (transformer)
+  // -------------------------------------------------------------------
+  function updateStepReadout() {
+    const [brain, llm] = getProfiles();
+
+    // Brain: where are we in the 160-790ms window
+    const brainFrac = brain.N > 1 ? progress : 0;
+    const brainTimeMs = brain.xAxis.min +
+                        brainFrac * (brain.xAxis.max - brain.xAxis.min);
+
+    // Transformer: which sublayer / component
+    const xFrame = profileFrame(llm);
+    const trimIdx = Math.floor(xFrame.idx / UP);
+    const origSub = trimIdx + xfmr.trim;
+    const blockLayer = Math.floor(origSub / 2);
+    const isPreAtt = (origSub % 2 === 0);
+    let compLabel;
+    if (isPreAtt) {
+      const prev = blockLayer > 0 ? `MLP-${blockLayer - 1}` : "embed";
+      compLabel = `${prev} | <span class="here">*</span> | ATT-${blockLayer}`;
+    } else {
+      compLabel = `ATT-${blockLayer} | <span class="here">*</span> | MLP-${blockLayer}`;
+    }
+
+    document.getElementById("stepReadout").innerHTML =
+      `BRAIN <span class="here">${Math.round(brainTimeMs)} ms</span>` +
+      `&nbsp;&nbsp;&nbsp;` +
+      `TRANSFORMER ${compLabel}`;
+
+    document.getElementById("progressNum").textContent =
+      `${(progress * 100).toFixed(0)}%`;
+  }
+
+  function updateLabels() {
+    const brain = pfcProfiles[pfcIdx];
+    const kLabel = kSum === 1
+      ? "PC1"
+      : (kSum === K_AVAILABLE ? `PC1..${kSum} (all)` : `PC1..${kSum}`);
+    document.getElementById("leftLabel").textContent =
+      `PFC POPULATION (${brain.ySignalName})`;
+    document.getElementById("leftSub").textContent =
+      `${brain.label}, motion context`;
+    document.getElementById("rightSub").textContent =
+      `unit ${xfmrUnitKey}, ${xfmrCondKey} problems`;
+
+    document.querySelector("#pfcCondToggle .val").textContent = brain.label;
+    document.querySelector("#pfcKToggle .val").textContent = kLabel;
+    document.querySelector("#xfmrUnitToggle .val").textContent = xfmrUnitKey;
+    document.querySelector("#xfmrCondToggle .val").textContent = xfmrCondKey;
+  }
+
+  function updateStats() {
+    const corr  = xfmrCondKey === "arithmetic" ? xfmr.corr_arith : xfmr.corr_ctrl;
+    const angle = xfmrCondKey === "arithmetic" ? xfmr.angle_arith : xfmr.angle_ctrl;
+    const pfcCond = pfcProfiles[pfcIdx];
+    const totalVar = pfc.metadata.var_explained_pct
+      .slice(0, kSum)
+      .reduce((a, b) => a + b, 0);
+    const kLabel = kSum === 1 ? "PC1" : `PC1..${kSum}`;
+    document.getElementById("stats").innerHTML =
+      `BRAIN: PFC pseudo-population (n=${pfc.metadata.n_units_loaded} units), ` +
+      `${kLabel} of ${K_AVAILABLE} stored captures ${totalVar.toFixed(1)}% of ` +
+      `condition-specific variance &middot; condition = ${pfcCond.label}` +
+      `&nbsp;&nbsp;|&nbsp;&nbsp;` +
+      `TRANSFORMER: unit ${xfmrUnitKey}, ${xfmrCondKey} &middot; ` +
+      `pair correlation = ${corr.toFixed(3)} &middot; ` +
+      `angle = ${angle.toFixed(1)}\u00B0`;
+  }
+
+  function draw() {
+    ctxL.clearRect(0, 0, canvasL.width, canvasL.height);
+    ctxR.clearRect(0, 0, canvasR.width, canvasR.height);
+    const [brain, llm] = getProfiles();
+    drawProfile(ctxL, brain);
+    drawProfile(ctxR, llm);
+    updateStepReadout();
+  }
+
+  // -------------------------------------------------------------------
+  // Animation loop
+  // -------------------------------------------------------------------
+  let lastTime = null;
+  function frame(now) {
+    if (lastTime === null) lastTime = now;
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    if (!paused) {
+      progress += dt / DURATION_SEC;
+      if (progress >= 1.0) progress = 0;
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // -------------------------------------------------------------------
+  // Controls
+  // -------------------------------------------------------------------
+  function setPaused(p) {
+    paused = p;
+    document.getElementById("pauseBtn").innerHTML =
+      paused ? "&#9654;" : "&#9646;&#9646;";
+  }
+  document.getElementById("pauseBtn").addEventListener("click",
+    () => setPaused(!paused));
+
+  // View mode
+  const modes = ["wave", "phase", "accel"];
+  const modeLabels = {
+    wave:  "ACTIVATION vs PROGRESS",
+    phase: "PHASE PORTRAIT",
+    accel: "\u0394 ACTIVATION vs \u0394\u00B2 ACTIVATION",
+  };
+  const nextModeBtn = {
+    wave:  "switch to phase portrait",
+    phase: "switch to \u0394a vs \u0394\u00B2a",
+    accel: "switch to waveform",
+  };
+  document.getElementById("viewToggle").addEventListener("click", () => {
+    const i = (modes.indexOf(mode) + 1) % modes.length;
+    mode = modes[i];
+    document.getElementById("viewLabel").textContent = modeLabels[mode];
+    document.querySelector("#viewToggle .val").textContent = nextModeBtn[mode];
+    setPaused(true);
+  });
+
+  // PFC condition cycle
+  document.getElementById("pfcCondToggle").addEventListener("click", () => {
+    pfcIdx = (pfcIdx + 1) % pfcProfiles.length;
+    updateLabels();
+    updateStats();
+    setPaused(true);
+  });
+
+  // PFC PC-sum cycle: 1 -> 2 -> ... -> K_AVAILABLE -> 1 -> ...
+  document.getElementById("pfcKToggle").addEventListener("click", () => {
+    kSum = (kSum % K_AVAILABLE) + 1;
+    rebuildPfcProfiles();
+    updateLabels();
+    updateStats();
+    setPaused(true);
+  });
+
+  // Transformer unit toggle
+  document.getElementById("xfmrUnitToggle").addEventListener("click", () => {
+    xfmrUnitKey = xfmrUnitKey === "2300" ? "2839" : "2300";
+    updateLabels();
+    updateStats();
+    setPaused(true);
+  });
+
+  // Transformer condition toggle
+  document.getElementById("xfmrCondToggle").addEventListener("click", () => {
+    xfmrCondKey = xfmrCondKey === "arithmetic" ? "control" : "arithmetic";
+    updateLabels();
+    updateStats();
+    setPaused(true);
+  });
+
+  // Drag-to-scrub on progress number
+  const progressNumEl = document.getElementById("progressNum");
+  let dragState = null;
+  function onDragStart(startX) {
+    setPaused(true);
+    dragState = { startX, startProgress: progress };
+    progressNumEl.classList.add("dragging");
+  }
+  function onDragMove(clientX) {
+    if (!dragState) return;
+    const dx = clientX - dragState.startX;
+    const scale = 1.0 / 600;  // 600px drag = full range
+    let p = dragState.startProgress + dx * scale;
+    p = Math.max(0, Math.min(p, 0.9999));
+    progress = p;
+  }
+  function onDragEnd() {
+    if (!dragState) return;
+    dragState = null;
+    progressNumEl.classList.remove("dragging");
+  }
+  progressNumEl.addEventListener("mousedown", e => {
+    e.preventDefault();
+    onDragStart(e.clientX);
+  });
+  window.addEventListener("mousemove", e => {
+    if (dragState) onDragMove(e.clientX);
+  });
+  window.addEventListener("mouseup", () => onDragEnd());
+  progressNumEl.addEventListener("touchstart", e => {
+    e.preventDefault();
+    onDragStart(e.touches[0].clientX);
+  }, { passive: false });
+  window.addEventListener("touchmove", e => {
+    if (dragState) onDragMove(e.touches[0].clientX);
+  });
+  window.addEventListener("touchend", () => onDragEnd());
+
+  // -------------------------------------------------------------------
+  // Boot
+  // -------------------------------------------------------------------
+  updateLabels();
+  updateStats();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

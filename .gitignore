@@ -1,0 +1,33 @@
+# Environment & secrets
+.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# Vercel
+.vercel/
+
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Large data files (exceed GitHub 100MB limit)
+*.npz
+*.npy
+
+# Research data (not part of the web app)
+PFC_data/
+tdr/
+
+# Misc
+zzz.txt
