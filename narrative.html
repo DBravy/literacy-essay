@@ -2204,6 +2204,10 @@
     /* The KV cache "without / with" pair is too tight side-by-side on a phone */
     .kv-panels { grid-template-columns: 1fr; gap: 18px; }
 
+    /* Convergence slide controls (Unit / layer nav / Problem) are a single
+       no-wrap row at desktop width; stack them so the dropdown stays on-screen */
+    .convergence-nav { flex-direction: column; gap: 12px; width: 100%; }
+
     /* --- Oscillation panels (slides 0-2): stack + fluid --- */
     .panels-row { flex-direction: column; align-items: center; }
     .panel canvas { width: min(88vw, 520px); height: auto; }
@@ -2302,7 +2306,7 @@
       </div>
       <ol class="cover-steps">
         <li><span class="hl">Highlight</span> any sentence or phrase you want explained, anywhere in the essay.</li>
-        <li>A small <span class="hl">Ask&nbsp;AI</span> button appears just above your selection. Click it.</li>
+        <li>A small <span class="hl">Ask&nbsp;AI</span> button appears just below your selection. Click it.</li>
         <li>A chat panel opens and explains the passage in context. Type a follow-up question, then press Enter or Send to keep going.</li>
       </ol>
       <div class="cover-helper-foot">
@@ -4132,6 +4136,9 @@
       const dy = t.clientY - sy;
       if (Math.abs(dx) < SWIPE_MIN) return;
       if (Math.abs(dy) > Math.abs(dx) * SWIPE_SLOP) return; // too vertical
+      // If the gesture selected text (e.g. drag-selecting for Ask AI), don't
+      // treat it as a navigation swipe.
+      if (window.getSelection && String(window.getSelection()).trim().length > 0) return;
       goToSlide(currentSlide + (dx < 0 ? 1 : -1));
     }, { passive: true });
   }
@@ -6356,7 +6363,8 @@
       // Keep within viewport
       left = Math.max(8, Math.min(left, window.innerWidth - tooltipW - 8));
       tooltip.style.left = left + 'px';
-      tooltip.style.top = (rect.top - tooltip.offsetHeight - 8 + window.scrollY) + 'px';
+      // Always place the Ask AI button below the selection.
+      tooltip.style.top = (rect.bottom + 8 + window.scrollY) + 'px';
       selectedText = text;
     } catch (e) {
       tooltip.style.display = 'none';
