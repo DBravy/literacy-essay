@@ -3939,6 +3939,11 @@
   document.getElementById("arrowLeft").addEventListener("click", () => goToSlide(currentSlide - 1));
   document.getElementById("arrowRight").addEventListener("click", () => goToSlide(currentSlide + 1));
 
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft")  { e.preventDefault(); goToSlide(currentSlide - 1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); goToSlide(currentSlide + 1); }
+  });
+
   const toCover = document.getElementById("toCover");
   if (toCover) {
     const returnToCover = () => {
