@@ -2174,15 +2174,35 @@
      tooltips. Preserves the existing desktop design above it.
      ================================================================ */
   @media (max-width: 760px) {
+    /* Root-cause fix for sideways overflow: the deck centers .container in a
+       flex body, so without a width cap it grows to its widest child (the
+       820px copy, the ~1000px diagram wrappers) and the overflow hangs off
+       both edges with the left side unreachable. Pin everything to the
+       viewport and stop any stray horizontal scroll. */
+    html, body { max-width: 100%; overflow-x: hidden; }
     body {
       padding: 14px 14px calc(78px + env(safe-area-inset-bottom));
     }
     .container {
+      width: 100%;
+      max-width: 100%;
       gap: 16px;
       min-height: auto;
     }
     .title { font-size: clamp(1.5rem, 6.2vw, 2rem); }
-    .description { font-size: 13.5px; line-height: 1.65; }
+    .description { font-size: 13.5px; line-height: 1.65; max-width: 100%; }
+    .closing { max-width: 100%; }
+
+    /* Diagram wrappers (slides 8-16): never wider than the screen, and the
+       few SVGs/canvas that ship without their own width rule get one so they
+       scale instead of rendering at their native 680-1000px. */
+    .circuit-container, .convergence-container, .kv-cache-container,
+    .mqa-container, .mla-container, .ix-container, .moe-container,
+    .hc-container { width: 100%; max-width: 100%; }
+    .ix-svg, .moe-svg { width: 100%; max-width: 680px; height: auto; display: block; }
+    .hc-canvas { width: min(92vw, 680px); height: auto; }
+    /* The KV cache "without / with" pair is too tight side-by-side on a phone */
+    .kv-panels { grid-template-columns: 1fr; gap: 18px; }
 
     /* --- Oscillation panels (slides 0-2): stack + fluid --- */
     .panels-row { flex-direction: column; align-items: center; }
