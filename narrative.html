@@ -2166,6 +2166,89 @@
       animation:none !important; opacity:1 !important; transform:none !important;
     }
   }
+
+  /* ================================================================
+     MOBILE / TOUCH ADAPTATIONS
+     One breakpoint that scales the fixed-width visuals, stacks the
+     side-by-side panels, relocates navigation, and supports tap
+     tooltips. Preserves the existing desktop design above it.
+     ================================================================ */
+  @media (max-width: 760px) {
+    body {
+      padding: 14px 14px calc(78px + env(safe-area-inset-bottom));
+    }
+    .container {
+      gap: 16px;
+      min-height: auto;
+    }
+    .title { font-size: clamp(1.5rem, 6.2vw, 2rem); }
+    .description { font-size: 13.5px; line-height: 1.65; }
+
+    /* --- Oscillation panels (slides 0-2): stack + fluid --- */
+    .panels-row { flex-direction: column; align-items: center; }
+    .panel canvas { width: min(88vw, 520px); height: auto; }
+    body:not(.slide-0) .panel-phase,
+    body.slide-2 .panel-accel {
+      max-width: min(88vw, 520px);
+      margin-left: 0;
+      margin-top: 18px;
+    }
+
+    /* --- Comparison view (slide 4): stack + fluid --- */
+    .comparison-container .panels-row { flex-direction: column; gap: 24px; }
+    .comparison-container .panel canvas { width: min(88vw, 520px); height: auto; }
+    .panel-caption { max-width: min(88vw, 520px); }
+    .problem-picker, #viewToggle {
+      position: static !important;
+      right: auto !important;
+      flex-direction: row !important;
+    }
+
+    /* --- Activation grid (slide 3) --- */
+    #canvasGrid { width: 92vw; max-width: 1000px; height: auto; }
+
+    /* --- 3D + video embeds (slide 5): stack + fluid --- */
+    .embed-row { flex-direction: column; align-items: center; }
+    .embed-panel iframe { width: min(92vw, 520px); height: auto; aspect-ratio: 52 / 31; }
+    .embed-video iframe { width: min(80vw, 320px); height: auto; aspect-ratio: 16 / 9; }
+
+    /* --- Hopfield memory network (slides 6-7): stack --- */
+    .mem-stage { flex-direction: column; align-items: center; gap: 18px; }
+    .mem-col { min-width: 0; width: min(86vw, 384px); padding-top: 0; }
+    #memCanvas { width: min(86vw, 384px); height: auto; }
+    .mem-beta-slider { width: min(70vw, 220px); }
+
+    /* --- Navigation arrows -> floating bottom corners --- */
+    .nav-arrow {
+      top: auto;
+      transform: none;
+      bottom: calc(8px + env(safe-area-inset-bottom));
+      font-size: 24px;
+      padding: 12px 22px;
+      border-radius: 999px;
+      background: rgba(127, 127, 127, 0.14);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+    }
+    .nav-arrow-left { left: 10px; }
+    .nav-arrow-right { right: 10px; }
+
+    /* The 18-item index grid does not fit a phone; arrows + swipe nav cover it */
+    .slide-nav { display: none; }
+
+    /* Return-to-cover control (final slide only) */
+    .to-cover { top: 12px; right: 12px; letter-spacing: 0.16em; }
+
+    /* --- Tooltips: keep on-screen, reveal via .tt-open tap class --- */
+    abbr[title]::after {
+      white-space: normal;
+      width: max-content;
+      max-width: min(76vw, 280px);
+    }
+    a.cite::after { max-width: min(80vw, 320px); }
+    abbr.tt-open::after,
+    a.cite.tt-open::after { opacity: 1; }
+  }
 </style>
 </head>
 <body class="slide-0">
@@ -3920,6 +4003,13 @@
     const brain = document.getElementById('brainLabel');
     const readout = document.getElementById('stepReadout');
     if (!brain || !readout || !row) return;
+    // On stacked (mobile) layouts the panels are vertical, so the desktop
+    // edge-alignment math does not apply. Reset to natural flow and bail.
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      if (vt) { vt.style.position = ''; vt.style.right = ''; }
+      if (pp) { pp.style.position = ''; pp.style.right = ''; pp.style.flexDirection = ''; }
+      return;
+    }
     const rowRect = row.getBoundingClientRect();
     const brainRect = brain.getBoundingClientRect();
     const readoutRect = readout.getBoundingClientRect();
@@ -3960,6 +4050,71 @@
   document.querySelectorAll('.slide-nav span').forEach(el => {
     el.addEventListener('click', () => goToSlide(Number(el.dataset.slide)));
   });
+
+  // -------------------------------------------------------------------
+  // Touch support: tap-to-toggle tooltips + swipe between slides.
+  // Gated to coarse/no-hover pointers so desktop behaviour is untouched.
+  // -------------------------------------------------------------------
+  const isTouch = window.matchMedia('(hover: none)').matches ||
+                  ('ontouchstart' in window);
+
+  if (isTouch) {
+    // Glossary abbreviations and citations reveal on hover on desktop;
+    // on touch there is no hover, so a tap toggles the tooltip instead.
+    const closeTips = (except) => {
+      document.querySelectorAll('.tt-open').forEach(el => {
+        if (el !== except) el.classList.remove('tt-open');
+      });
+    };
+
+    document.addEventListener('click', (e) => {
+      const tip = e.target.closest('abbr[title], a.cite');
+      if (!tip) { closeTips(null); return; }
+
+      // a.cite is a real link: first tap shows the reference, a second
+      // tap (while open) follows through to the source.
+      if (tip.matches('a.cite') && tip.classList.contains('tt-open')) {
+        return; // allow navigation
+      }
+      e.preventDefault();
+      const wasOpen = tip.classList.contains('tt-open');
+      closeTips(tip);
+      tip.classList.toggle('tt-open', !wasOpen);
+    });
+
+    // Horizontal swipe to move between slides. Ignore gestures that begin
+    // on interactive surfaces (canvases, the 3D embeds, sliders, steppers)
+    // so we never hijack drawing, scrubbing, or model manipulation.
+    const SWIPE_MIN = 55;      // px of horizontal travel required
+    const SWIPE_SLOP = 0.6;    // |dy| must stay below this fraction of |dx|
+    let sx = 0, sy = 0, swiping = false;
+
+    const blocked = (target) => !!(target.closest && target.closest(
+      'canvas, iframe, input, select, button, a, ' +
+      '.scrubber-row, .unit-stepper, .panel-controls, .mini-stepper, ' +
+      '.mem-stage, .mem-controls, .mem-beta-row, .slide-nav'
+    ));
+
+    document.addEventListener('touchstart', (e) => {
+      const cover = document.getElementById('coverIntro');
+      const coverUp = cover && !cover.classList.contains('dismissed');
+      if (e.touches.length !== 1 || coverUp || blocked(e.target)) { swiping = false; return; }
+      swiping = true;
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      if (!swiping) return;
+      swiping = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - sx;
+      const dy = t.clientY - sy;
+      if (Math.abs(dx) < SWIPE_MIN) return;
+      if (Math.abs(dy) > Math.abs(dx) * SWIPE_SLOP) return; // too vertical
+      goToSlide(currentSlide + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+  }
 
   // -------------------------------------------------------------------
   // Controls: pause + drag-to-scrub
